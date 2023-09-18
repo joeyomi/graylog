@@ -11,8 +11,8 @@ on:
   push:
     branches:
       - "*"
-    paths:
-      - "terraform/**"
+    #paths:
+    #  - "terraform/**"
 
 permissions:
   contents: read
