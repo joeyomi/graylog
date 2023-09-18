@@ -2,11 +2,12 @@
 # Locals
 #------------------------------------------------------------------------------
 locals {
-  region = var.region
-  #environment      = var.environment
-  #prefix           = var.prefix
-  name = "${var.prefix}-${var.environment}"
-  #name_pascal_case = replace(title(replace(local.name, "-", " ")), " ", "")
+  region           = var.region
+  environment      = var.environment
+  prefix           = var.prefix
+  name             = "${var.prefix}-${var.environment}"
+  name_pascal_case = replace(title(replace(local.name, "-", " ")), " ", "")
+  azs              = slice(data.aws_availability_zones.available.names, 0, 3)
 
   tags = {
     environment = var.environment,

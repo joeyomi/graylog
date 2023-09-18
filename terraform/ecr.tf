@@ -4,10 +4,10 @@
 module "ecr_repository" {
   #checkov:skip=CKV_TF_1: "Ensure Terraform module sources use a commit hash" | This is delibrate.
 
-  source   = "terraform-aws-modules/ecr/aws"
-  version  = "~> 1.0"
+  source  = "terraform-aws-modules/ecr/aws"
+  version = "~> 1.0"
 
-  repository_name = "${var.prefix}-${var.environment}"
+  repository_name = "${local.name}-dockerhub"
 
   repository_read_write_access_arns = [data.aws_caller_identity.current.arn, ]
   repository_read_access_arns       = ["*"]
