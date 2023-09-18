@@ -35,6 +35,11 @@ env:
   STAGING_VARFILE: "varfiles/develop.tfvars"
   DEFAULT_VARFILE: "varfiles/develop.tfvars" # for unspecified branches
 
+  PROD_WORKSPACE: "production"
+  DEVELOP_WORKSPACE: "develop"
+  STAGING_WORKSPACE: "develop"
+  DEFAULT_WORKSPACE: "develop" # for unspecified branches
+
 jobs:
   terraform-format-checks:
     name: Terraform Format Checks
@@ -60,6 +65,8 @@ jobs:
     outputs:
       should_plan: ${{ steps.check.outputs.should_plan }}
       should_apply: ${{ steps.check.outputs.should_apply }}
+      varfile: ${{ steps.varfile.outputs.varfile }}
+      workspace: ${{ steps.workspace.outputs.workspace }}
     env:
       BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
     steps:
@@ -87,6 +94,42 @@ jobs:
           echo SHOULD_PLAN: $SHOULD_PLAN
           echo SHOULD_APPLY: $SHOULD_APPLY
 
+      - name: Set Varfile Based on Branch
+        id: varfile
+        run: |
+          case $BRANCH_NAME in
+            main)
+              echo "varfile=${{ env.PROD_VARFILE }}" >> $GITHUB_OUTPUT
+              ;;
+            develop)
+              echo "varfile=${{ env.DEVELOP_VARFILE }}" >> $GITHUB_OUTPUT
+              ;;
+            staging)
+              echo "varfile=${{ env.STAGING_VARFILE }}" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "varfile=${{ env.DEFAULT_VARFILE }}" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+      - name: Set Terraform Workspace
+        id: workspace
+        run: |
+          case $BRANCH_NAME in
+            main)
+              echo "workspace=${{ env.PROD_WORKSPACE }}" >> $GITHUB_OUTPUT
+              ;;
+            develop)
+              echo "workspace=${{ env.DEVELOP_WORKSPACE }}" >> $GITHUB_OUTPUT
+              ;;
+            staging)
+              echo "workspace=${{ env.STAGING_WORKSPACE }}" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "workspace=${{ env.DEFAULT_WORKSPACE }}" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
   terraform-plan:
     if: needs.check-branch.outputs.should_plan == 'true'
     needs: [terraform-format-checks, check-branch]
@@ -96,6 +139,10 @@ jobs:
       contents: read
       pull-requests: write
       id-token: write
+    env:
+      BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+      WORKSPACE: "${{ needs.check-branch.outputs.workspace }}"
+      VARFILE: "${{ needs.check-branch.outputs.varfile }}"
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -115,25 +162,6 @@ jobs:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
           terraform_wrapper: false
 
-      - name: Set Varfile Based on Branch
-        id: varfile
-        run: |
-          BRANCH_NAME=$(echo "${{ github.ref }}" | sed -n 's/refs\/heads\///p')
-          case $BRANCH_NAME in
-            main)
-              echo "varfile=${{ env.PROD_VARFILE }}" >> $GITHUB_OUTPUT
-              ;;
-            develop)
-              echo "varfile=${{ env.DEVELOP_VARFILE }}" >> $GITHUB_OUTPUT
-              ;;
-            staging)
-              echo "varfile=${{ env.STAGING_VARFILE }}" >> $GITHUB_OUTPUT
-              ;;
-            *)
-              echo "varfile=${{ env.DEFAULT_VARFILE }}" >> $GITHUB_OUTPUT
-              ;;
-          esac
-
       - name: Setup JQ
         id: setup-jq
         run: sudo apt-get install -y jq
@@ -148,8 +176,9 @@ jobs:
         id: set-workspace
         working-directory: ${{ env.TERRAFORM_PATH }}
         run: |
-          BRANCH_NAME=$(echo "${{ github.ref }}" | sed -n 's/refs\/heads\///p')
-          terraform workspace select $BRANCH_NAME || terraform workspace new $BRANCH_NAME
+          echo "Workspace: $WORKSPACE"
+
+          terraform workspace new $WORKSPACE || terraform workspace select $WORKSPACE
 
       - name: Terraform Validate
         id: validate
@@ -168,7 +197,7 @@ jobs:
         working-directory: ${{ env.TERRAFORM_PATH }}
         continue-on-error: true
         run: |
-          OUTPUT=$(terraform plan -no-color -input=false -var-file=${{ env.COMMON_VARFILE }} -var-file=${{ steps.varfile.outputs.varfile }} -out=plan.tfplan)
+          OUTPUT=$(terraform plan -no-color -input=false -var-file=${{ env.COMMON_VARFILE }} -var-file=$VARFILE -out=plan.tfplan)
           OUTPUT="$(echo "${OUTPUT}" | grep -v "Refreshing state")"
           OUTPUT="$(echo -n "$OUTPUT" | tail -c 59000)"
           OUTPUT=$(echo "$OUTPUT" | jq -R -s -c .)
@@ -220,7 +249,8 @@ jobs:
               return comment.user.type === 'Bot' && comment.body.includes('Terraform Format and Style')
             })
 
-            const output = `#### Terraform Format and Style 🖌 \`${{ needs.terraform-format-checks.outputs.fmt_outcome }}\`
+            const output = `#### Terraform Workspace 🏗️ \`${{ needs.check-branch.outputs.workspace }}\`
+            #### Terraform Format and Style 🖌 \`${{ needs.terraform-format-checks.outputs.fmt_outcome }}\`
             #### Terraform Initialization ⚙️ \`${{ steps.init.outcome }}\`
             #### Terraform Validation 🤖 \`${{ steps.validate.outcome }}\`
             <details><summary>Validation Output</summary>
@@ -267,10 +297,11 @@ jobs:
     if: needs.check-branch.outputs.should_apply == 'true'
     needs: [terraform-format-checks, terraform-plan, check-branch]
     runs-on: ubuntu-latest
-    environment: provisioned
     permissions:
       contents: read
       id-token: write
+    env:
+      WORKSPACE: "${{ needs.check-branch.outputs.workspace }}"
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -305,8 +336,9 @@ jobs:
         id: set-workspace
         working-directory: ${{ env.TERRAFORM_PATH }}
         run: |
-          BRANCH_NAME=$(echo "${{ github.ref }}" | sed -n 's/refs\/heads\///p')
-          terraform workspace select $BRANCH_NAME || terraform workspace new $BRANCH_NAME
+          echo "Workspace: $WORKSPACE"
+
+          terraform workspace new $WORKSPACE || terraform workspace select $WORKSPACE
 
       - name: Terraform Apply
         id: apply
