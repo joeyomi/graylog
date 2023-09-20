@@ -11,8 +11,8 @@ on:
   push:
     branches:
       - "*"
-    #paths:
-    #  - "terraform/**"
+    paths:
+      - "terraform/**"
 
 permissions:
   contents: read
@@ -30,12 +30,12 @@ env:
   APPLY_BRANCHES: "main,develop,staging" # branch for terraform apply
 
   COMMON_VARFILE: "varfiles/common.tfvars"
-  PROD_VARFILE: "varfiles/production.tfvars"
+  PROD_VARFILE: "varfiles/develop.tfvars"
   DEVELOP_VARFILE: "varfiles/develop.tfvars"
   STAGING_VARFILE: "varfiles/develop.tfvars"
   DEFAULT_VARFILE: "varfiles/develop.tfvars" # for unspecified branches
 
-  PROD_WORKSPACE: "production"
+  PROD_WORKSPACE: "develop"
   DEVELOP_WORKSPACE: "develop"
   STAGING_WORKSPACE: "develop"
   DEFAULT_WORKSPACE: "develop" # for unspecified branches
