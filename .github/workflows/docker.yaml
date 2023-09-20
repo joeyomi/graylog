@@ -14,6 +14,10 @@ on:
     paths:
       - "application/**"
 
+permissions:
+  contents: read
+  id-token: write
+
 env:
   DOCKERFILE_PATH: application/Dockerfile
   DOCKER_CONTEXT_PATH: application
@@ -33,6 +37,7 @@ jobs:
 
       - name: Lint Go Code
         run: |
+          cd ./application
           go fmt ./...
           go vet ./...
 
@@ -51,6 +56,7 @@ jobs:
 
       - name: Test Go App
         run: |
+          cd ./application
           go test ./...
 
   build:
