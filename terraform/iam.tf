@@ -77,3 +77,8 @@ module "eks_admins_iam_group" {
 data "aws_iam_role" "ci_runner" {
   name = "ci-runner"
 }
+
+data "aws_iam_user" "admins" {
+  for_each  = toset(var.eks_admin_users)
+  user_name = each.key
+}
