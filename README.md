@@ -29,7 +29,7 @@ The application is accessible via a URL and is accompanied by a dashboard that m
   * Prometheus [dashboard](https://prom.graylog.joeyomi.69ideas.com/targets)
   * Grafana [dashboard](https://grafana.graylog.joeyomi.69ideas.com/d/yNtNqrmIk/go-webapp-monitoring?orgId=1). Login with `admin/prom-operator`.
 
-**🚨 Note:** Note: The application introduces a random delay (0 to 1200ms) to simulate latency and a 15% error rate (500) for testing monitoring capabilities.
+**🚨 Note:** The application introduces a random delay (0 to 1200ms) to simulate latency and a 15% error rate (500) for testing monitoring capabilities.
 
 
 ## Requirements
