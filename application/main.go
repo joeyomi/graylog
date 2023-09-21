@@ -15,10 +15,10 @@ const (
 	// Port on which the server runs
 	serverPort = ":5000"
 	// Min and Max sleep durations in milliseconds to simulate work
-	minSleepDurationMs = 600
+	minSleepDurationMs = 0
 	maxSleepDurationMs = 1200
 	// Error simulation rate
-	errorRate = 0.1 // 10% error rate
+	errorRate = 0.15 // 15% error rate
 )
 
 var (
