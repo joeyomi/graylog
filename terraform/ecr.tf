@@ -10,9 +10,12 @@ module "ecr_repository" {
 
   repository_name = local.name
 
-  repository_read_write_access_arns = [data.aws_caller_identity.current.arn, ]
-  repository_read_access_arns       = ["*"]
-  create_lifecycle_policy           = true
+  repository_read_write_access_arns = concat(
+    [data.aws_iam_role.ci_runner.arn],
+    [for user in data.aws_iam_user.admins : user.arn],
+  )
+  repository_read_access_arns = ["*"]
+  create_lifecycle_policy     = true
   repository_lifecycle_policy = jsonencode({
     rules = [
       {

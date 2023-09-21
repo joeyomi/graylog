@@ -70,6 +70,11 @@ module "eks" {
       username = module.eks_admins_iam_role.iam_role_name
       groups   = ["system:masters"]
     },
+    {
+      rolearn  = data.aws_iam_role.ci_runner.arn
+      username = data.aws_iam_role.ci_runner.id
+      groups   = ["system:masters"]
+    },
   ]
 
   node_security_group_additional_rules = {

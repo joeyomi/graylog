@@ -73,3 +73,12 @@ module "eks_admins_iam_group" {
   group_users                       = var.eks_admin_users
   custom_group_policy_arns          = [module.allow_assume_eks_admins_iam_policy.arn]
 }
+
+data "aws_iam_role" "ci_runner" {
+  name = "ci-runner"
+}
+
+data "aws_iam_user" "admins" {
+  for_each  = toset(var.eks_admin_users)
+  user_name = each.key
+}
