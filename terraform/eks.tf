@@ -1,28 +1,59 @@
 #------------------------------------------------------------------------------
-# EKS
+# EKS Cluster
 #------------------------------------------------------------------------------
+
 module "eks" {
   #checkov:skip=CKV_TF_1: "Ensure Terraform module sources use a commit hash" | This is delibrate.
 
   source  = "terraform-aws-modules/eks/aws"
-  version = "~> 18.0"
+  version = "18.29.0"
 
-  cluster_name                    = "${local.name}-cluster"
-  cluster_version                 = var.cluster_version
+  cluster_name    = "${local.name}-cluster"
+  cluster_version = var.cluster_version
+
   cluster_endpoint_private_access = true
   cluster_endpoint_public_access  = true
 
-  vpc_id                   = module.vpc.vpc_id
-  subnet_ids               = module.vpc.private_subnets
-  control_plane_subnet_ids = module.vpc.intra_subnets
+  vpc_id     = module.vpc.vpc_id
+  subnet_ids = module.vpc.private_subnets
 
-  cluster_addons = {
-    kube-proxy = {}
-    vpc-cni    = {}
-    coredns = {
-      configuration_values = jsonencode({
-        computeType = "Fargate"
-      })
+  enable_irsa = true
+
+  eks_managed_node_group_defaults = {
+    disk_size = 50
+  }
+
+  eks_managed_node_groups = {
+    general = {
+      desired_size = 1
+      min_size     = 1
+      max_size     = 10
+
+      labels = {
+        role = "general"
+      }
+
+      instance_types = ["t3.small"]
+      capacity_type  = "ON_DEMAND"
+    }
+
+    spot = {
+      desired_size = 1
+      min_size     = 1
+      max_size     = 10
+
+      labels = {
+        role = "spot"
+      }
+
+      taints = [{
+        key    = "market"
+        value  = "spot"
+        effect = "NO_SCHEDULE"
+      }]
+
+      instance_types = ["t3.micro"]
+      capacity_type  = "SPOT"
     }
   }
 
@@ -32,62 +63,57 @@ module "eks" {
     resources        = ["secrets"]
   }]
 
-  # Fargate profiles use the cluster primary security group so these are not utilized
-  create_cluster_security_group = false
-  create_node_security_group    = false
-
-  fargate_profiles = merge(
+  manage_aws_auth_configmap = true
+  aws_auth_roles = [
     {
-      default = {
-        name = "default"
-        selectors = [
-          {
-            namespace = "backend"
-            labels = {
-              Application = "backend"
-            }
-          },
-          {
-            namespace = "app-*"
-            labels = {
-              Application = "app-wildcard"
-            }
-          }
-        ]
-
-        # Use specific subnets instead of the subnets supplied for the cluster itself
-        # subnet_ids = [module.vpc.private_subnets[1]]
-
-        tags = merge(local.tags, {
-          Owner = "secondary"
-        })
-
-        timeouts = {
-          create = "20m"
-          delete = "20m"
-        }
-      }
+      rolearn  = module.eks_admins_iam_role.iam_role_arn
+      username = module.eks_admins_iam_role.iam_role_name
+      groups   = ["system:masters"]
     },
-    { for i in range(3) :
-      "kube-system-${element(split("-", local.azs[i]), 2)}" => {
-        selectors = [
-          { namespace = "kube-system" }
-        ]
-        # Create a profile per AZ for high availability
-        subnet_ids = [element(module.vpc.private_subnets, i)]
-      }
-    }
-  )
+  ]
 
-  tags = local.tags
+  node_security_group_additional_rules = {
+    ingress_allow_access_from_control_plane = {
+      type                          = "ingress"
+      protocol                      = "tcp"
+      from_port                     = 9443
+      to_port                       = 9443
+      source_cluster_security_group = true
+      description                   = "Allow access from control plane to webhook port of AWS load balancer controller"
+    }
+  }
+
+  tags = {
+    Environment = local.environment
+  }
 }
 
-resource "aws_kms_key" "eks" {
-  #checkov:skip=CKV2_AWS_64: "Ensure KMS key Policy is defined"
+# https://github.com/terraform-aws-modules/terraform-aws-eks/issues/2009
+data "aws_eks_cluster" "default" {
+  name = module.eks.cluster_id
+}
 
-  description             = "${local.name} EKS Secret Encryption Key"
-  deletion_window_in_days = 7
-  enable_key_rotation     = true
+data "aws_eks_cluster_auth" "default" {
+  name = module.eks.cluster_id
+}
 
-  tags = local.tags
+provider "kubernetes" {
+  host                   = data.aws_eks_cluster.default.endpoint
+  cluster_ca_certificate = base64decode(data.aws_eks_cluster.default.certificate_authority[0].data)
+  token                  = data.aws_eks_cluster_auth.default.token
+}
+
+provider "kubectl" {
+  host                   = data.aws_eks_cluster.default.endpoint
+  cluster_ca_certificate = base64decode(data.aws_eks_cluster.default.certificate_authority[0].data)
+  token                  = data.aws_eks_cluster_auth.default.token
+  load_config_file       = false
+}
+
+provider "helm" {
+  kubernetes {
+    host                   = data.aws_eks_cluster.default.endpoint
+    cluster_ca_certificate = base64decode(data.aws_eks_cluster.default.certificate_authority[0].data)
+    token                  = data.aws_eks_cluster_auth.default.token
+  }
 }

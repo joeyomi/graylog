@@ -9,6 +9,8 @@ locals {
   name_pascal_case = replace(title(replace(local.name, "-", " ")), " ", "")
   azs              = slice(data.aws_availability_zones.available.names, 0, 3)
 
+  domain_name = "graylog.${data.aws_route53_zone.this.name}"
+
   tags = {
     environment = var.environment,
     ManagedBy   = "Terraform"
