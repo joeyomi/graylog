@@ -13,28 +13,22 @@ module "charts_prometheus_operator" {
       - job_name: graylog-job
         scrape_interval: 15s
         kubernetes_sd_configs:
-        - role: pod
+        - role: service
           namespaces:
             names:
             - default
         relabel_configs:
-        - source_labels: [__meta_kubernetes_namespace]
-          action: replace
-          target_label: namespace
-        - source_labels: [__meta_kubernetes_pod_name]
-          action: replace
-          target_label: pod
-        - source_labels: [__address__]
-          action: replace
-          regex: ([^:]+)(?::\d+)?
-          replacement: ${1}:5000
-          target_label: __address__
-        - source_labels: [__meta_kubernetes_pod_label_app]
+        - source_labels: [__meta_kubernetes_service_name]
           action: keep
           regex: graylog
+        - source_labels: [__meta_kubernetes_service_cluster_ip]
+          action: replace
+          target_label: __address__
+          replacement: $1:5000
 EOF
   ]
 }
+
 
 resource "kubectl_manifest" "monitoring_ingress" {
   depends_on = [
