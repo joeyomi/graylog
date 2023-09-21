@@ -28,8 +28,21 @@ variable "assume_role_external_id" {
   default     = ""
 }
 
+variable "route53_zone_name" {
+  type        = string
+  description = "Route 53 Zone name."
+  default     = null
+}
+
 variable "cluster_version" {
   type        = string
   description = "EKS Cluster version"
   default     = "1.27"
+}
+
+variable "eks_admin_users" {
+  description = "IAM users (username) to add to the eks admins group."
+  type        = list(string)
+
+  default = []
 }
